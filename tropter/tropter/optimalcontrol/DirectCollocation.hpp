@@ -27,18 +27,18 @@ namespace tropter {
 
 template<typename T>
 DirectCollocationSolver<T>::DirectCollocationSolver(
-        std::shared_ptr<const OCProblem> ocproblem,
+        const Problem<T>& problem,
         const std::string& transcrip,
         const std::string& optsolver,
         const unsigned& num_mesh_points)
-        : m_ocproblem(ocproblem)
+        : m_problem(problem)
 {
     std::locale loc;
     std::string transcrip_lower = transcrip;
     std::transform(transcrip_lower.begin(), transcrip_lower.end(),
             transcrip_lower.begin(), ::tolower);
     if (transcrip_lower == "trapezoidal") {
-        m_transcription.reset(new transcription::Trapezoidal<T>(ocproblem,
+        m_transcription.reset(new transcription::Trapezoidal<T>(problem,
                                                              num_mesh_points));
     } else {
         TROPTER_THROW("Unrecognized transcription method %s.", transcrip);

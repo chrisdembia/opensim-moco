@@ -37,8 +37,7 @@ class Base;
 template<typename T>
 class DirectCollocationSolver {
 public:
-    typedef Problem<T> OCProblem;
-    DirectCollocationSolver(std::shared_ptr<const OCProblem> ocproblem,
+    DirectCollocationSolver(const Problem<T>& problem,
                             const std::string& transcription_method,
                             const std::string& optimization_solver,
                             // TODO remove; put somewhere better.
@@ -112,7 +111,7 @@ public:
     void print_constraint_values(const Iterate& vars,
                                  std::ostream& stream = std::cout) const;
 private:
-    std::shared_ptr<const OCProblem> m_ocproblem;
+    const Problem<T>& m_problem;
     // TODO perhaps ideally DirectCollocationSolver would not be templated?
     std::unique_ptr<transcription::Base<T>> m_transcription;
     std::unique_ptr<optimization::Solver> m_optsolver;

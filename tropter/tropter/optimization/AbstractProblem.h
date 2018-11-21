@@ -96,8 +96,7 @@ public:
 
     class CalcSparsityHessianLagrangianNotImplemented : public Exception {};
 
-    virtual std::unique_ptr<ProblemDecorator>
-    make_decorator() const = 0;
+    virtual std::unique_ptr<ProblemDecorator> make_decorator() const = 0;
 
 protected:
 

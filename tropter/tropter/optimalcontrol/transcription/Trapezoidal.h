@@ -52,22 +52,21 @@ namespace transcription {
 template<typename T>
 class Trapezoidal : public Base<T> {
 public:
-    typedef tropter::Problem<T> OCProblem;
 
     // TODO why would we want a shared_ptr? A copy would use the same Problem.
-    Trapezoidal(std::shared_ptr<const OCProblem> ocproblem,
+    Trapezoidal(Problem<T> problem,
             unsigned num_mesh_points = 50) {
         if (std::is_same<T, double>::value) {
             this->set_use_supplied_sparsity_hessian_lagrangian(true);
         }
         set_num_mesh_points(num_mesh_points);
-        set_ocproblem(ocproblem);
+        set_problem(std::move(problem));
     }
     /// The number of mesh points must be at least 2.
     // TODO order of calls?
     // TODO right now, must call this BEFORE set_problem.
     void set_num_mesh_points(unsigned N);
-    void set_ocproblem(std::shared_ptr<const OCProblem> ocproblem);
+    void set_problem(Problem<T> problem);
 
     void calc_objective(const VectorX<T>& x, T& obj_value) const override;
     void calc_constraints(const VectorX<T>& x,
@@ -163,7 +162,7 @@ protected:
 
 private:
 
-    std::shared_ptr<const OCProblem> m_ocproblem;
+    Problem<T> m_problem;
     int m_num_mesh_points;
     int m_num_time_variables = -1;
     int m_num_parameters = -1;

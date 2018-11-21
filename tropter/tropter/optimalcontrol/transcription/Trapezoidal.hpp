@@ -34,21 +34,20 @@ void Trapezoidal<T>::set_num_mesh_points(unsigned N) {
 }
 
 template<typename T>
-void Trapezoidal<T>::set_ocproblem(
-        std::shared_ptr<const OCProblem> ocproblem) {
-    m_ocproblem = ocproblem;
-    m_num_states = m_ocproblem->get_num_states();
-    m_num_controls = m_ocproblem->get_num_controls();
+void Trapezoidal<T>::set_problem(Problem<T> problem) {
+    m_problem = std::move(problem);
+    m_num_states = m_problem.get_num_states();
+    m_num_controls = m_problem.get_num_controls();
     m_num_continuous_variables = m_num_states+m_num_controls;
     m_num_time_variables = 2;
-    m_num_parameters = m_ocproblem->get_num_parameters();
+    m_num_parameters = m_problem.get_num_parameters();
     m_num_dense_variables = m_num_time_variables + m_num_parameters;
     int num_variables = m_num_time_variables + m_num_parameters
             + m_num_mesh_points * m_num_continuous_variables;
     this->set_num_variables(num_variables);
     m_num_defects = m_num_states ? m_num_mesh_points - 1 : 0;
     m_num_dynamics_constraints = m_num_defects * m_num_states;
-    m_num_path_constraints = m_ocproblem->get_num_path_constraints();
+    m_num_path_constraints = m_problem.get_num_path_constraints();
     // TODO rename..."total_path_constraints"?
     int num_path_traj_constraints = m_num_mesh_points * m_num_path_constraints;
     int num_constraints = m_num_dynamics_constraints +
@@ -77,7 +76,7 @@ void Trapezoidal<T>::set_ocproblem(
     VectorXd parameters_lower(m_num_parameters);
     VectorXd path_constraints_lower(m_num_path_constraints);
     VectorXd path_constraints_upper(m_num_path_constraints);
-    m_ocproblem->get_all_bounds(initial_time_lower, initial_time_upper,
+    m_problem.get_all_bounds(initial_time_lower, initial_time_upper,
             final_time_lower, final_time_upper,
             states_lower, states_upper,
             initial_states_lower, initial_states_upper,
@@ -144,7 +143,7 @@ void Trapezoidal<T>::set_ocproblem(
     m_integrand.resize(m_num_mesh_points);
     m_derivs.resize(m_num_states, m_num_mesh_points);
 
-    m_ocproblem->initialize_on_mesh(mesh);
+    m_problem.initialize_on_mesh(mesh);
 }
 
 template<typename T>
@@ -165,7 +164,7 @@ void Trapezoidal<T>::calc_objective(const VectorX<T>& x, T& obj_value) const
     // Endpoint cost.
     // --------------
     // TODO does this cause the final_states to get copied?
-    m_ocproblem->calc_endpoint_cost(final_time, states.rightCols(1), parameters,
+    m_problem.calc_endpoint_cost(final_time, states.rightCols(1), parameters,
         obj_value);
 
     // Integral cost.
@@ -173,7 +172,7 @@ void Trapezoidal<T>::calc_objective(const VectorX<T>& x, T& obj_value) const
     m_integrand.setZero();
     for (int i_mesh = 0; i_mesh < m_num_mesh_points; ++i_mesh) {
         const T time = step_size * i_mesh + initial_time;
-        m_ocproblem->calc_integral_cost(time,
+        m_problem.calc_integral_cost(time,
                 states.col(i_mesh), controls.col(i_mesh), parameters,
                 m_integrand[i_mesh]);
     }
@@ -218,7 +217,7 @@ void Trapezoidal<T>::calc_constraints(const VectorX<T>& x,
     for (int i_mesh = 0; i_mesh < m_num_mesh_points; ++i_mesh) {
         // TODO should pass the time.
         const T time = step_size * i_mesh + initial_time;
-        m_ocproblem->calc_differential_algebraic_equations(
+        m_problem.calc_differential_algebraic_equations(
                 {i_mesh, time, states.col(i_mesh), controls.col(i_mesh),
                  parameters},
                 {m_derivs.col(i_mesh),
@@ -298,7 +297,7 @@ void Trapezoidal<T>::calc_sparsity_hessian_lagrangian(
                     m_num_parameters).template cast<T>();
                 VectorX<T> deriv(m_num_states);
                 VectorX<T> path(m_num_path_constraints);
-                m_ocproblem->calc_differential_algebraic_equations(
+                m_problem.calc_differential_algebraic_equations(
                         {0, t, s, c, p}, {deriv, path});
                 return idx < m_num_states ? deriv[idx]
                                           : path[idx - m_num_states];
@@ -346,7 +345,7 @@ void Trapezoidal<T>::calc_sparsity_hessian_lagrangian(
         VectorX<T> p = x.segment(m_num_time_variables,
             m_num_parameters).template cast<T>();
         T integrand = 0;
-        m_ocproblem->calc_integral_cost(t, s, c, p, integrand);
+        m_problem.calc_integral_cost(t, s, c, p, integrand);
         return integrand;
     };
     SymmetricSparsityPattern integral_cost_sparsity =
@@ -369,7 +368,7 @@ void Trapezoidal<T>::calc_sparsity_hessian_lagrangian(
                 VectorX<T> p = x.segment(m_num_time_variables,
                     m_num_parameters).template cast<T>();
                 T cost = 0;
-                m_ocproblem->calc_endpoint_cost(t, s, p, cost);
+                m_problem.calc_endpoint_cost(t, s, p, cost);
                 return cost;
             };
     const auto lastmeshstart = m_num_dense_variables +
@@ -466,9 +465,9 @@ deconstruct_iterate(const Eigen::VectorXd& x) const
     traj.controls = this->make_controls_trajectory_view(x);
     traj.parameters = this->make_parameters_view(x);
 
-    traj.state_names = m_ocproblem->get_state_names();
-    traj.control_names = m_ocproblem->get_control_names();
-    traj.parameter_names = m_ocproblem->get_parameter_names();
+    traj.state_names = m_problem.get_state_names();
+    traj.control_names = m_problem.get_control_names();
+    traj.parameter_names = m_problem.get_parameter_names();
 
     return traj;
 }
@@ -501,9 +500,9 @@ print_constraint_values(const Iterate& ocp_vars,
     VectorX<T> upper_T =
             this->get_constraint_upper_bounds().template cast<T>();
     //ConstraintsView upper = make_constraints_view(upper_T);
-    auto state_names = m_ocproblem->get_state_names();
-    auto control_names = m_ocproblem->get_control_names();
-    auto parameter_names = m_ocproblem->get_parameter_names();
+    auto state_names = m_problem.get_state_names();
+    auto control_names = m_problem.get_control_names();
+    auto parameter_names = m_problem.get_parameter_names();
     std::vector<std::string> time_names = {"initial_time", "final_time"};
 
     Iterate ocp_vars_lower = deconstruct_iterate(
@@ -772,7 +771,7 @@ print_constraint_values(const Iterate& ocp_vars,
     // Path constraints.
     // -----------------
     stream << "\nPath constraints:";
-    auto pathcon_names = m_ocproblem->get_path_constraint_names();
+    auto pathcon_names = m_problem.get_path_constraint_names();
 
     if (pathcon_names.empty()) {
         stream << " none" << std::endl;
