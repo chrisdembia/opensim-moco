@@ -1,5 +1,5 @@
 /* -------------------------------------------------------------------------- *
- * OpenSim Moco: sandboxSlidingMass.cpp                                       *
+ * OpenSim Moco: sandboxVehicleBicycle.cpp                                    *
  * -------------------------------------------------------------------------- *
  * Copyright (c) 2020 Stanford University and the Authors                     *
  *                                                                            *
@@ -143,8 +143,6 @@ int main() {
     // (surrogate for rider comfort).
     problem.addGoal<MocoFinalTimeGoal>("time");
     problem.addGoal<MocoControlGoal>("control");
-
-    auto rep = problem.createRep();
 
     MocoSolution solution = study.solve();
     solution.write("vehicle_bicycle_solution.sto");
